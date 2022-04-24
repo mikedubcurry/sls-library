@@ -1,11 +1,6 @@
 # TODO
 
-- add table to track who checks out books or maybe add attribute to books table
 - user profile pictures with s3? would need to add new endpoint to CRUD avatar
-- add role to users table
-  - **admin**: assign roles
-  - **librarian**: add books
-  - **guest**: check out books
 - frontend in vue
   - pages:
     - /login

@@ -1,8 +1,11 @@
 import AWS from "aws-sdk";
 import express from "express";
 import { v4 as uuid } from "uuid";
-import { genSaltSync, hashSync, compareSync, hash } from "bcrypt";
+import { genSaltSync, hashSync, compareSync } from "bcrypt";
 import serverless from "serverless-http";
+import { ROLES } from "../constants";
+import { tokenForUser } from "../utils";
+import { userIsAdmin, notFound } from "../middlewares";
 
 const app = express();
 
@@ -45,6 +48,8 @@ app.post("/users/login", async (req, res) => {
       const passwordsMatch = compareSync(password, hashedPw);
 
       if (passwordsMatch) {
+        const token = tokenForUser(user as User);
+        res.setHeader("authorization", "Bearer " + token);
         res.json({ userId, userName });
       } else {
         res.status(401).json({ message: "unauthorized" });
@@ -66,25 +71,28 @@ app.post("/users/register", async (req, res) => {
   if (typeof userName !== "string") {
     res.status(400).json({ error: '"userName" must be a string' });
   }
-  
+
   if (!password) {
     res.status(400).json({ error: '"password" must be included' });
   }
   const salt = genSaltSync();
   const hashedPw = hashSync(password, salt);
   const userId = uuid();
-  
+  const user = {
+    userId,
+    userName,
+    password: hashedPw,
+    role: ROLES.GUEST,
+  };
   const params = {
     TableName: USERS_TABLE,
-    Item: {
-      userId,
-      userName,
-      password: hashedPw,
-    },
+    Item: user,
     ConditionExpression: "attribute_not_exists(userId)",
   };
   try {
     await dynamoDbClient.put(params).promise();
+    const token = tokenForUser(user);
+    res.setHeader("authorization", "Bearer " + token);
     res.json({ userName, userId });
   } catch (error) {
     console.log(error);
@@ -134,10 +142,43 @@ app.put("/users/:userId", async (req, res) => {
   }
 });
 
-app.use((req, res, next) => {
-  return res.status(404).json({
-    error: "Not Found",
-  });
+app.put("/users/role/:userName", userIsAdmin, async (req, res) => {
+  const { userName } = req.params;
+  if (userName) {
+    const params = {
+      TableName: USERS_TABLE,
+      Key: {
+        userName,
+      },
+    };
+
+    try {
+      const { Item: user } = await dynamoDbClient.get(params).promise();
+      if (!user) {
+        return res.status(400).json({ message: "user does not exist" });
+      } else {
+        const updatedUser: User = {
+          userId: user.userId,
+          userName: user.userName,
+          password: user.password,
+          role: ROLES.LIBRARIAN,
+        };
+        const params = {
+          TableName: USERS_TABLE,
+          Item: updatedUser,
+        };
+
+        await dynamoDbClient.put(params).promise();
+
+        return res.json({ message: "success" });
+      }
+    } catch (error) {
+      return res.status(500).json({ message: "failed to fetch user" });
+    }
+  }
+  res.status(400).json({ message: "must supply userId" });
 });
+
+app.use(notFound);
 
 export const handler = serverless(app);

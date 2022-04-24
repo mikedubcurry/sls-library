@@ -6,6 +6,7 @@ frameworkVersion: "3"
 custom:
   usersTableName: "users-table-v2-${sls:stage}"
   booksTableName: "books-table-v2-${sls:stage}"
+  jwtSecret: "secr3t"
 
 provider:
   name: aws
@@ -36,16 +37,17 @@ provider:
   environment:
     USERS_TABLE: ${self:custom.usersTableName}
     BOOKS_TABLE: ${self:custom.booksTableName}
+    JWT_SECRET: ${self:custom.jwtSecret}
 
 functions:
   register-api:
     handler: dist/auth/handler.handler
     events:
-      - httpApi: "*"
+      - httpApi: "ANY /users/{proxy+}"
   library-api:
     handler: dist/books/handler.handler
     events:
-      - httpApi: "*"
+      - httpApi: "ANY /books/{proxy+}"
 
 resources:
   Resources:

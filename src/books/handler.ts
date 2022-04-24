@@ -1,6 +1,7 @@
 import AWS from "aws-sdk";
 import express from "express";
 import serverless from "serverless-http";
+import { notFound, userIsAtLeastLibrarian } from "../middlewares";
 
 const app = express();
 
@@ -26,7 +27,26 @@ app.get("/books", async (req, res) => {
   }
 });
 
-app.post("/books", async (req, res) => {
+app.get("/books/:isbn", async (req, res) => {
+  const { isbn } = req.params;
+  if (!isbn || isbn.length < 13) {
+    res.status(400).json({ message: "please use valid isbn" });
+  }
+  const params = {
+    TableName: BOOKS_TABLE,
+    Key: {
+      isbn,
+    },
+  };
+  try {
+    const { Item: book } = await dynamoDbClient.get(params).promise();
+    res.json(book);
+  } catch (error) {
+    res.status(500).json({ message: "could not retreive book" });
+  }
+});
+
+app.post("/books", userIsAtLeastLibrarian, async (req, res) => {
   const { title, author, isbn } = req.body;
   if (!title || !author || !isbn) {
     res
@@ -54,10 +74,6 @@ app.post("/books", async (req, res) => {
   }
 });
 
-app.use((req, res, next) => {
-  return res.status(404).json({
-    error: "Not Found",
-  });
-});
+app.use(notFound);
 
 export const handler = serverless(app);

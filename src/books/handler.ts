@@ -75,6 +75,7 @@ app.get("/books/:isbn", async (req, res) => {
   }
   const params = {
     TableName: BOOKS_TABLE,
+    ProjectionExpression: "isbn, title, author, checkedOut",
     Key: {
       isbn,
     },

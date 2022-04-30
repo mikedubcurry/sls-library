@@ -1,5 +1,6 @@
 # TODO
 
+- remove express and replace with more native api gateway events
 - user profile pictures with s3? would need to add new endpoint to CRUD avatar
 - frontend in vue
   - pages:

@@ -68,8 +68,21 @@ resources:
         AttributeDefinitions:
           - AttributeName: isbn
             AttributeType: S
+          - AttributeName: title
+            AttributeType: S
+          - AttributeName: author
+            AttributeType: S
         KeySchema:
           - AttributeName: isbn
             KeyType: HASH
+        GlobalSecondaryIndexes:
+          - IndexName: TitleAuthorIndex
+            KeySchema:
+              - AttributeName: title
+                KeyType: HASH
+              - AttributeName: author
+                KeyType: RANGE
+            Projection:
+              ProjectionType: 'ALL'
         BillingMode: PAY_PER_REQUEST
         TableName: ${self:custom.booksTableName}

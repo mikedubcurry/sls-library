@@ -13,6 +13,7 @@ app.use(express.json());
 app.get("/books", async (req, res) => {
   const params = {
     TableName: BOOKS_TABLE,
+    ProjectionExpression: "isbn, title, author, checkedOut",
   };
   try {
     const { Items: books } = await dynamoDbClient.scan(params).promise();
@@ -24,6 +25,46 @@ app.get("/books", async (req, res) => {
   } catch (error) {
     console.log(error);
     res.status(500).json({ error: "Could not retreive books" });
+  }
+});
+
+app.get("/books/search", async (req, res) => {
+  const { query } = req.query;
+  if (!query) {
+    return res.redirect("/books/");
+  }
+
+  const expressionQueryValues = query
+    .toString()
+    .split(" ")
+    .reduce((queries, q, idx) => {
+      queries[`:q${idx}`] = q.toLowerCase();
+      return queries;
+    }, {} as ExpressionQueryValues);
+
+  const filterQueryExpression = Object.entries(expressionQueryValues)
+    .map(([key]) => {
+      return `contains(searchTitle,${key}) OR contains(searchAuthor,${key})`;
+    })
+    .join(" OR ");
+
+  const params = {
+    TableName: BOOKS_TABLE,
+    FilterExpression: filterQueryExpression,
+    ExpressionAttributeValues: expressionQueryValues,
+    ProjectionExpression: "isbn, title, author, checkedOut",
+  };
+
+  try {
+    const books = await dynamoDbClient.scan(params).promise();
+    if (books) {
+      res.json({ books });
+    } else {
+      res.status(404).json({ books: [] });
+    }
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: "Could not retreive books" });
   }
 });
 
@@ -57,6 +98,8 @@ app.post("/books", userIsAtLeastLibrarian, async (req, res) => {
     isbn,
     title,
     author,
+    searchTitle: title.toLowerCase().replace(/[^a-z0-9]/gi, " "),
+    searchAuthor: author.toLowerCase().replace(/[^a-z0-9]/gi, " "),
     checkedOut: false,
   };
   const params = {
@@ -70,7 +113,7 @@ app.post("/books", userIsAtLeastLibrarian, async (req, res) => {
     res.json(book);
   } catch (error) {
     console.log(error);
-    res.status(500).json({ error: "Could not create book: " + error });
+    res.status(500).json({ error: "Could not create book"});
   }
 });
 

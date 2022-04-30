@@ -4,3 +4,7 @@ interface User {
   userName?: string;
   password?: string;
 }
+
+interface ExpressionQueryValues {
+  [key: string]: string;
+}
